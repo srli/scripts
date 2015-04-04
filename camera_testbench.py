@@ -31,6 +31,7 @@ Initalize camera (probably want to make this a class)
 Get initial focus, getImage with said focus
 
 Check brightness of image. If < 150, loop back to getImage, else print/log warning and loop back to getImage
+^getBrightness should be called before any other image function, allows us to make quick escapes
 
 Calculate imageCenter of image, changing X, Y servo positions until center is w/2, h/2. These servo movements should be
 pretty large.
@@ -44,11 +45,12 @@ need to move servos nor calculate focusPostion
 Save sharpest image. End program.
 
 Notes:
-(Are we outputting errors to a .txt file? Might as well)
+(Are we outputting errors/warnings to a .txt file? Might as well)
 getFocus needs to be called every time a servo is moved.
 Don't know how the servo control scheme works, just assume we're moving it by some scale
 Why would we need to use external code/apis when the assumed scripts do the things we need it to do?
-
+^need to write pyserial stuff to communicate with Arduino
+^need to also write the .ino stuff that moves servos
 
 """
 #!/usr/bin/env python
@@ -57,21 +59,29 @@ Why would we need to use external code/apis when the assumed scripts do the thin
 import appleCamera 
 import cameraProcessing
 
+class Camera():
+	def __init__(self, cameraPort):
+		self.cameraHandle = appleCamera.initCamera(cameraPort)
+		self.integrationTimes = 10
+
+	def takeImage(self):
+		focusPostion = appleCamera.getFocus(self)
+		image = appleCamera.getImage(self.integrationTimes, focusPostion)
+		return image
+
+class Image():
+	def __init__(self, brightness):
+		self.brightness = brightness
+
 if __name__ == "__main__":
 	print "hello"
-	integrationTimes = 10 #assuming we want to keep this constant, choosing random number for now
 	cameraPort = 1 #probably want to make this an argv input
-	cameraHandle = appleCamera.initCamera(cameraPort)
-	if cameraHandle == -1:
+	myCamera = Camera(cameraPort) #this really doesn't need to be a class.... TODO: decide on this
+	if myCamera.cameraHandle == -1:
 		raise AssertionError('Camera could not initialize, check connections')
 
 	while True: #this is bad, fix this, loops forever
-		focusPostion = getFocus(cameraHandle) #focus will change every time to we move the servos
-		image = cameraProcessing.getImage(integrationTimes, focusPostion)
-		try:
-			brightness = cameraProcessing.getBrightness(image)
-		except:
-			raise AssertionError('Image brightness < 150, retake image')
+		image = Image(myCamera.takeImage())
 		sharpness = cameraProcessing.getSharpness(image)
 		imageCenter = cameraProcessing.getCenter(image)
 		imageOffset = cameraProcessing.getOffset(image)

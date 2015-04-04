@@ -52,6 +52,7 @@ Why would we need to use external code/apis when the assumed scripts do the thin
 ^need to write pyserial stuff to communicate with Arduino
 ^need to also write the .ino stuff that moves servos
 
+Assume we have a move_x, move_y, and move_z script that takes in the distance the servo needs to move
 """
 #!/usr/bin/env python
 
@@ -59,29 +60,57 @@ Why would we need to use external code/apis when the assumed scripts do the thin
 import appleCamera 
 import cameraProcessing
 
-class Camera():
-	def __init__(self, cameraPort):
-		self.cameraHandle = appleCamera.initCamera(cameraPort)
-		self.integrationTimes = 10
+# class Camera():
+# 	def __init__(self, cameraPort):
+# 		self.cameraHandle = appleCamera.initCamera(cameraPort)
+# 		self.integrationTimes = 10
 
-	def takeImage(self):
-		focusPostion = appleCamera.getFocus(self)
-		image = appleCamera.getImage(self.integrationTimes, focusPostion)
-		return image
+# 	def takeImage(self):
+# 		focusPostion = appleCamera.getFocus(self)
+# 		image = appleCamera.getImage(self.integrationTimes, focusPostion)
+# 		return image
 
-class Image():
-	def __init__(self, brightness):
-		self.brightness = brightness
+# class Image():
+# 	def __init__(self, brightness):
+# 		self.brightness = brightness
 
 if __name__ == "__main__":
-	print "hello"
 	cameraPort = 1 #probably want to make this an argv input
-	myCamera = Camera(cameraPort) #this really doesn't need to be a class.... TODO: decide on this
-	if myCamera.cameraHandle == -1:
+	integrationTimes = 10 #not sure what this is, will make constant for now
+	h = 480
+	w = 600
+	biggest_sharpness = 0
+
+	myCamera = appleCamera.initCamera(cameraPort)
+	if myCamera == -1:
 		raise AssertionError('Camera could not initialize, check connections')
+	#initializing complete
 
 	while True: #this is bad, fix this, loops forever
-		image = Image(myCamera.takeImage())
-		sharpness = cameraProcessing.getSharpness(image)
-		imageCenter = cameraProcessing.getCenter(image)
-		imageOffset = cameraProcessing.getOffset(image)
+		focusPostion = appleCamera.getFocus(myCamera)
+		image = appleCamera.getImage(integrationTimes, focusPostion)
+		processing_image = True
+		while processing_image:
+			brightness = cameraProcessing.getBrightness(image)
+			if brightness < 150:
+				#warning here, take another image
+				raise AssertionError('Image too dark, retake')
+				break #this is gross
+			
+			imageCenter = cameraProcessing.getCenter(image)
+			centerDiffs = [imageCenter[0] - w/2, imageCenter[1] - h/2]
+			if centerDiffs[0] != 0: #probably can't be exactly equal to 0...
+				move_x(centerDiffs[0]*0.5) #we're multiplying by a scale so the camera doesn't shoot off in a direction
+				break
+			elif centerDiffs[1] != 0: #this way we move 1 direction at a time
+				move_y(centerDiffs[1]*0.5)
+				break
+
+			imageOffset = cameraProcessing.getOffset(image)
+			#same concept with offsetDiffs, start with Z offset though
+			
+			for i in range(10):
+				sharpness = cameraProcessing.getSharpness(image)
+				if sharpness > biggest_sharpness:
+					finalImage = image
+			

@@ -23,10 +23,10 @@ c++ works better
 #include <stdlib.h>     /* srand, rand */
 #include <time.h>
 
-int array[n][2];
-
 int main{
 	int seed;
+	int array[n][2];
+
 	seed = srand (time(NULL));
 	return 0;
 }

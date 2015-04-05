@@ -44,24 +44,18 @@ def sort(array):
 		return array
 
 def test_sort(array):
-	passed = True
 	first_product = array[0][1] * array[0][0]
-	for i in (2):
-		element = array[i]
-		first_product = first_product*(element[0]*element[1])
-	for i in range(3,len(array)):
-		element = array[i]
-		prev_element = array[-i]
-		product = first_product*(element[0]*element[1])
+	for i in range(2,len(array)-2):
+		prev_product = (array[i-2][1] * array[i-2][0])*(array[i-1][1] * array[i-1][0])*(array[i][1] * array[i][0])
+	 	current_product = (array[i-1][1] * array[i-1][0])*(array[i][1] * array[i][0])*(array[i+1][1] * array[i+1][0])
+	 	if current_product < prev_product:
+	 		raise AssertionError('Sorting not correct, re-evaluate algorithm')
+	 	next_product = (array[i][1] * array[i][0])*(array[i+1][1] * array[i+1][0])*(array[i+2][1] * array[i+2][0])
+	 	if current_product > next_product:
+	 		raise AssertionError('Sorting not correct, re-evaluate algorithm')
 
-
-test_array = [[randint(0,10) for i in range(2)] for j in range(randint(0,20))]
-#test_array = [4,6,9,10,20,44,12,0,2,2,4]
-print test_array
-sorted_array = sort(test_array)
-print sorted_array
-#epeatarrays = identify_repeats(sorted_array)
-#repeatarrays2 = identify_repeats(sorted_array)
-
-#print repeatarrays
-#print repeatarrays2
+if __name__ == '__main__':
+	test_array = [[randint(0,10) for i in range(2)] for j in range(randint(1,20))] #these range values can be changed
+	sorted_array = sort(test_array)
+	print sorted_array
+	test_sort(sorted_array)

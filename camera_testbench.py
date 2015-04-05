@@ -60,19 +60,7 @@ Assume we have a move_x, move_y, and move_z script that takes in the distance th
 import appleCamera
 import cameraProcessing
 
-# class Camera():
-# 	def __init__(self, cameraPort):
-# 		self.cameraHandle = appleCamera.initCamera(cameraPort)
-# 		self.integrationTimes = 10
-
-# 	def takeImage(self):
-# 		focusPostion = appleCamera.getFocus(self)
-# 		image = appleCamera.getImage(self.integrationTimes, focusPostion)
-# 		return image
-
-class Image():
-	def __init__(self, image):
-		self.image = image
+import warnings
 
 if __name__ == "__main__":
 	cameraPort = 1 #probably want to make this an argv input
@@ -86,29 +74,56 @@ if __name__ == "__main__":
 		raise AssertionError('Camera could not initialize, check connections')
 	#initializing complete
 
-	while True: #this is bad, fix this, loops forever
+	taking_image = True
+	centering = True
+	offsetting = True
+
+	i = 0
+
+	while taking_image: #this is bad, fix this, loops forever
 		focusPostion = appleCamera.getFocus(myCamera)
 		image = appleCamera.getImage(integrationTimes, focusPostion)
-			try:
-				brightness = cameraProcessing.getBrightness(image)
-				if brightness < 150:
-					#warning here, take another image
-					raise AssertionError('Image too dark, retake')
-			except:
-				raise AssertionError('Image too dark, retake')
+
+		try:
+			brightness = cameraProcessing.getBrightness(image)
+			if brightness < 150:
+				warnings.warn('Image too dark, retaking')
+				continue
+		except:
+			warnings.warn('Image too dark, retaking')
+			continue
+
+		if centering:
+			move_direction = [0,0,0] #x,y,z
 			imageCenter = cameraProcessing.getCenter(image)
 			centerDiffs = [imageCenter[0] - w/2, imageCenter[1] - h/2]
-			if centerDiffs[0] != 0: #probably can't be exactly equal to 0...
-				move_x(centerDiffs[0]*0.5) #we're multiplying by a scale so the camera doesn't shoot off in a direction
-				break
-			elif centerDiffs[1] != 0: #this way we move 1 direction at a time
-				move_y(centerDiffs[1]*0.5)
-				break
+			if (-5 >= centerDiffs[0]) or (centerDiffs[0] >= 5): #probably can't be exactly equal to 0... however, this code can easily be changed for 0
+				move_direction[0] = (centerDiffs[0]*0.5) #we're multiplying by a scale so the camera doesn't shoot off in a direction
+			elif (-5 >= centerDiffs[1]) or (centerDiffs[1] >= 5): #this way we move 1 direction at a time
+				move_direction[1] = (centerDiffs[1]*0.5)
+			else:
+				centering = False
+			continue
 
+		if offsetting:
+			move_direction = [0,0,0]
 			imageOffset = cameraProcessing.getOffset(image)
+			if (-5 >= imageOffset[0]) or (imageOffset[0] >= 5): #probably can't be exactly equal to 0... however, this code can easily be changed for 0
+				move_direction[0] = (imageOffset[0]*0.5) #could do this in a loop...
+			elif (-5 >= imageOffset[1]) or (imageOffset[1] >= 5): #this way we move 1 direction at a time
+				move_direction[1] = (imageOffset[1]*0.5)
+			elif (-5 >= imageOffset[2]) or (imageOffset[2] >= 5): #this way we move 1 direction at a time
+				move_direction[2] = (imageOffset[2]*0.5)
+			else:
+				offsetting = False
+			continue
 			#same concept with offsetDiffs, start with Z offset though
 
-			for i in range(10):
-				sharpness = cameraProcessing.getSharpness(image)
-				if sharpness > biggest_sharpness:
-					finalImage = image
+		if i < 10:
+			sharpness = cameraProcessing.getSharpness(image)
+			if sharpness > biggest_sharpness:
+				finalImage = image
+			i += 1
+		if i == 10:
+			taking_image = False
+			#save somehow finalImage

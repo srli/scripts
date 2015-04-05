@@ -70,14 +70,14 @@ import cameraProcessing
 # 		image = appleCamera.getImage(self.integrationTimes, focusPostion)
 # 		return image
 
-# class Image():
-# 	def __init__(self, brightness):
-# 		self.brightness = brightness
+class Image():
+	def __init__(self, image):
+		self.image = image
 
 if __name__ == "__main__":
 	cameraPort = 1 #probably want to make this an argv input
 	integrationTimes = 10 #not sure what this is, will make constant for now
-	h = 480
+	h = 480 #typical image dimensions
 	w = 600
 	biggest_sharpness = 0
 
@@ -89,14 +89,13 @@ if __name__ == "__main__":
 	while True: #this is bad, fix this, loops forever
 		focusPostion = appleCamera.getFocus(myCamera)
 		image = appleCamera.getImage(integrationTimes, focusPostion)
-		processing_image = True
-		while processing_image:
-			brightness = cameraProcessing.getBrightness(image)
-			if brightness < 150:
-				#warning here, take another image
+			try:
+				brightness = cameraProcessing.getBrightness(image)
+				if brightness < 150:
+					#warning here, take another image
+					raise AssertionError('Image too dark, retake')
+			except:
 				raise AssertionError('Image too dark, retake')
-				break #this is gross
-
 			imageCenter = cameraProcessing.getCenter(image)
 			centerDiffs = [imageCenter[0] - w/2, imageCenter[1] - h/2]
 			if centerDiffs[0] != 0: #probably can't be exactly equal to 0...

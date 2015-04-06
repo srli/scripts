@@ -1,58 +1,10 @@
 """
-Assumptions
-		Camera can be controlled by including the appleCamera interface that has the following functions:
-			cameraHandle = initCamera(int cameraPort) -> returns a handle / interface to the camera or -1 if it couldn’t initialize
-			image = getImage(int integrationTimems, int focusPosition) -> returns an image with the specified integration time at the
-			requested focus position or -1 if there was an error.
-			focusPostion = getFocus(cameraHandle myCamera) -> returns the approximate best focus position of the camera
+@author: Sophia Li
 
-		Images from the camera can be processed by using cameraProcessing interface that has the following functions:
-			brightness = getBrightness (image inputImage) -> returns the average brightness of the image.
-			sharpness = getSharpness (image inputImage) -> returns the average sharpness of the image.
-			imageCenter = getCenter(image inputImage) ->  returns the detected target center of the image,
-			as an array with [0] = X, [1] = Y. Ideally, center is (w/2, h/2)
-			imageOffset = getOffset (image inputImage) -> returns the detect target tilt offsets of the image,
-			as an array, with [0] = X offset, [1] = Y offset, [2] = Z offset from the ideal center. Ideally, offsets are 0.
+This code initializes a camera handler from appleCamera, then centers a camera to a scene and saves an image with the lowest offest,
+highest sharpness and best centering using functions from cameraProcessing.
 
-The code should be commented as if you were handing it off to somebody else to build a test case around.
-Python / C is fine for the language used.
-
-		Write a program that will center the camera to the target and finish by saving the image with the best centering,
-		best sharpness, and lowest offset
-		The image functions will not work with an image that does not have an average brightness of at least 150
-		Error handling should report the error and then abort the program.
-
-"""
-
-"""
-Ok, so workflow:
-Initalize camera (probably want to make this a class)
-
-Get initial focus, getImage with said focus
-
-Check brightness of image. If < 150, loop back to getImage, else print/log warning and loop back to getImage
-^getBrightness should be called before any other image function, allows us to make quick escapes
-
-Calculate imageCenter of image, changing X, Y servo positions until center is w/2, h/2. These servo movements should be
-pretty large.
-
-Calculate imageOffset in loop. Go through X, Y, Z positions until all offsets are zero (Arduino + SEROVS here).
-While in this loop. These servo movements should be smaller.
-
-Calculate sharpness of image. Take a bunch of images here in case the lighting conditions are changing. Shouldn't
-need to move servos nor calculate focusPostion
-
-Save sharpest image. End program.
-
-Notes:
-(Are we outputting errors/warnings to a .txt file? Might as well)
-getFocus needs to be called every time a servo is moved.
-Don't know how the servo control scheme works, just assume we're moving it by some scale
-Why would we need to use external code/apis when the assumed scripts do the things we need it to do?
-^need to write pyserial stuff to communicate with Arduino
-^need to also write the .ino stuff that moves servos
-
-Assume we have a move_x, move_y, and move_z script that takes in the distance the servo needs to move
+It requires an Arduino/MBED device connected on port /dev/ttyACM0 to move the camera servos
 """
 #!/usr/bin/env python
 
@@ -61,9 +13,10 @@ import appleCamera
 import cameraProcessing
 
 import serial
-import struct #packs the move_servo information into bytes to send over serial to Arduino
+import struct 	#packs the moveCamera information into bytes to send over serial to Arduino
 import warnings
 import time
+import json 	#for saving the final image
 
 class CameraTestbench:
 	def __init__(cameraPort):
@@ -108,11 +61,12 @@ class CameraTestbench:
 	def checkBrightness(self):
 		bright = True
 		brightness = cameraProcessing.getBrightness(self.current_image)
-		if brightness < 150: 			#Brightness under 150 threshold won't work with cameraProcessing functions, must detect
+		if brightness < 150: 			#Brightness under 150 threshold won't work with cameraProcessing functions, must  check here
 			#raise AssertionError('Image too dark, change camera setting conditions') 	#Can also raise AssertionError to exit program
 			warnings.warn('Image too dark, retake necessary')
 			bright = False
 		return bright
+
 
 	def centerCamera(self):
 		centering = True
@@ -130,7 +84,7 @@ class CameraTestbench:
 
 
 	def zeroOffset(self):
-		#Many same concepts as centerCamera, refer to above
+		#Many same concepts as centerCamera, refer to above comments
 		zeroing = True
 		timeout = time.time() + 60*2
 
@@ -163,10 +117,11 @@ class CameraTestbench:
 		self.centerCamera()
 		self.zeroOffset()
 		self.findSharpest()
-		return self.finalImage
+		with open('image.txt', 'w') as outfile:				#This writes the image as a string to a .txt file. Can be easily changed to save in different formats
+			json.dump(self.finalImage, outfile)
+
 
 if __name__ == "__main__":
 	cameraPort = 1
 	myCamera = CameraTestbench(cameraPort)
-	image = myCamera.bestImage()
-
+	myCamera.bestImage()

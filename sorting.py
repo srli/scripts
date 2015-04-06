@@ -1,24 +1,17 @@
 """
-Given
-A random 2D array of number pairs of size N, like the following:
-Element A B
-Required
-Write a program that sorts the elements of the array so that the product of the elements before and after the current element are minimized.
-IE: element(k) should be arranged such that
-element(k-2)*element(k-1)*element(k) < element(k-1)*element(k)*element(k+1) < element(k)*element(k+1)*element(k+2)
-where element(n) is the product of both numbers that belong to that element.
+@author: Sophia Li
+
+This code generates 100 2byN arrays of random numbers and sorts so that element[k] is
+	element(k-2)*element(k-1)*element(k) < element(k-1)*element(k)*element(k+1) < element(k)*element(k+1)*element(k+2)
+
+It uses quicksort, the foundational code found from: http://stackoverflow.com/questions/18262306/quick-sort-with-python
 """
-"""
-Thoughts
-----
-Just have to multiply numbers in A with corresp in B to get element(n), assuming the A and B numbers are paired
-Literally just a sorted list, the products corollary doesn't really matter since if it's arranged in increasing order, it'll naturally follow
-"""
+
 #!/usr/bin/env python
 from random import randint
 
 def sort(array):
-	#use quicksort
+	#using quicksort
 	less = []
 	equal = []
 	greater = []
@@ -33,10 +26,10 @@ def sort(array):
 				equal.append(element)
 			if x > pivot:
 				greater.append(element)
-		return sort(less)+equal+sort(greater)  # Just use the + operator to join lists
-	# Note that you want equal ^^^^^ not pivot
-	else:  # You need to hande the part at the end of the recursion - when you only have one element in your array, just return the array.
+		return sort(less)+equal+sort(greater)  #Using + operator to join lists
+	else:  #When one element in array, returns the array.
 		return array
+
 
 def test_sort(array):
 	for i in range(2,len(array)-2):
@@ -51,12 +44,13 @@ def test_sort(array):
 	 		print "at index %i, current product was %i and next_product was %i" % (i, current_product, next_product)
 	 		raise AssertionError('Sorting not correct, re-evaluate algorithm')
 
+
 if __name__ == '__main__':
-	for i in range(100): #doing 100 trials
-		test_array = [[randint(-20,20) for i in range(2)] for j in range(randint(1,100))] #these range values can be changed
-		test_array.insert(0, [0,0]) #for sake of testing, we insert a [0,0] so there's a buffer between negative and positive elements
+	for i in range(100): 				#doing 100 trials
+		test_array = [[randint(-20,20) for i in range(2)] for j in range(randint(1,100))] 	#these range values can be changed
+		test_array.insert(0, [0,0]) 	#for sake of testing, we insert a [0,0] so there's a buffer between negative and positive elements
 		sorted_array = sort(test_array)
 		#print sorted_array
 		test_sort(sorted_array)
-		sorted_array.remove([0,0]) #then remove so we're not altering the data
+		sorted_array.remove([0,0]) 		#then remove so we're not altering the data
 	print "Testing complete, sorting correct"

@@ -13,10 +13,11 @@ import appleCamera
 import cameraProcessing
 
 import serial
-import struct 	#packs the moveCamera information into bytes to send over serial to Arduino
 import warnings
 import time
+import struct 	#packs the moveCamera information into bytes to send over serial to Arduino
 import json 	#for saving the final image
+
 
 class CameraTestbench:
 	def __init__(cameraPort):
@@ -81,6 +82,7 @@ class CameraTestbench:
 					self.moveCamera[i] = (centerDiffs[i]*self.servoRate)
 				if (abs(centerDiffs[0]) and abs(centerDiffs[1]) < self.centerThreshold) or time.time() > timeout: 	#if X, Y position are within centerThreshold, centering is done
 					centering = False																				#if loop has been running too long, centering also autoexits
+			time.sleep(0.5)				#Pause for a bit to let servos catch up
 
 
 	def zeroOffset(self):
@@ -96,6 +98,7 @@ class CameraTestbench:
 					self.moveCamera[i] = (imageOffset[i]*self.servoRate)
 				if (abs(imageOffset[0]) and abs(imageOffset[1]) and abs(imageOffset[2]) < self.offsetThreshold) or time.time() > timeout:
 					zeroing = False
+			time.sleep(0.5)
 
 
 	def findSharpest(self):
@@ -113,7 +116,7 @@ class CameraTestbench:
 		self.ser.write(serialString)						#Expecting Arduino code to accept this serial string and act on it
 
 
-	def bestImage(self):
+	def findBestImage(self):
 		self.centerCamera()
 		self.zeroOffset()
 		self.findSharpest()
@@ -124,4 +127,4 @@ class CameraTestbench:
 if __name__ == "__main__":
 	cameraPort = 1
 	myCamera = CameraTestbench(cameraPort)
-	myCamera.bestImage()
+	myCamera.findBestImage()

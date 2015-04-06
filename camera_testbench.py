@@ -60,6 +60,7 @@ Assume we have a move_x, move_y, and move_z script that takes in the distance th
 import appleCamera
 import cameraProcessing
 
+import serial
 import warnings
 
 if __name__ == "__main__":
@@ -67,7 +68,6 @@ if __name__ == "__main__":
 	integrationTimes = 10 #not sure what this is, will make constant for now
 	h = 480 #typical image dimensions
 	w = 600
-	biggest_sharpness = 0
 
 	myCamera = appleCamera.initCamera(cameraPort)
 	if myCamera == -1:
@@ -78,7 +78,12 @@ if __name__ == "__main__":
 	centering = True
 	offsetting = True
 
+	highest_sharpness = 0
 	i = 0
+	try:
+		ser = serial.Serial('/dev/ttyACM0, 9660')
+	except:
+		raise AssertionError('Could not connect to Arduino, check connections')
 
 	while taking_image: #this is bad, fix this, loops forever
 		focusPostion = appleCamera.getFocus(myCamera)
@@ -103,6 +108,7 @@ if __name__ == "__main__":
 				move_direction[1] = (centerDiffs[1]*0.5)
 			else:
 				centering = False
+			ser.write(move_direction)
 			continue
 
 		if offsetting:
@@ -116,14 +122,15 @@ if __name__ == "__main__":
 				move_direction[2] = (imageOffset[2]*0.5)
 			else:
 				offsetting = False
+			ser.write(move_direction)
 			continue
-			#same concept with offsetDiffs, start with Z offset though
 
 		if i < 10:
 			sharpness = cameraProcessing.getSharpness(image)
 			if sharpness > biggest_sharpness:
 				finalImage = image
 			i += 1
+
 		if i == 10:
 			taking_image = False
 			#save somehow finalImage

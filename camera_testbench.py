@@ -61,76 +61,112 @@ import appleCamera
 import cameraProcessing
 
 import serial
+import struct #packs the move_servo information into bytes to send over serial to Arduino
 import warnings
+import time
+
+class CameraTestbench:
+	def __init__(cameraPort):
+		#Initializing the camera handler
+		self.myCamera = appleCamera.initCamera(cameraPort)
+		if self.myCamera == -1:
+			raise AssertionError('Camera could not initialize, check connections/port')
+
+		#Opening serial port for communcation with Arduino/MBED device
+		try:
+			self.ser = serial.Serial('/dev/ttyACM0, 9660')
+		except:
+			raise AssertionError('Could not open port ttyACM0, check connections/port')
+
+		#Arbitrary defined constants. Change for the situation
+		self.integrationTimes = 15 		#Not sure what this is, change as necessary
+
+		self.imageHeightCenter = 480/2	#Common image dimensions (480x600). Value divided by 2 because we want the center
+		self.imageWidthCenter = 600/2
+
+		self.centerThreshold = 5 		#Defining center and offset thresholds, because it's hard to get exactly the optimal numbers. Saves time calibrating
+		self.offsetThreshold = 0.1 		#Smaller thresholds mean more precise camera centering/zeroing but at cost of time
+
+		self.servoRate = 0.7 			#Defines how quickly the servos will spin depending on distance to desired value
+										#This can be set to 1, then defined inside the Arduino script
+
+		#Initalizing various variables
+		self.focusPostion = 0
+		self.current_image = 0
+
+		self.sharpestImage = 0
+		self.bestImage = self.current_image
+
+		self.moveCamera = [0,0,0] 		#formatted in [x, y, z]
+
+
+	def takeImage(self):
+		self.focusPostion = appleCamera.getFocus(self.myCamera)
+		self.current_image = appleCamera.getImage(self.integrationTimes, self.focusPostion)
+
+
+	def checkBrightness(self):
+		bright = True
+		brightness = cameraProcessing.getBrightness(self.current_image)
+		if brightness < 150: 			#Brightness under 150 threshold won't work with cameraProcessing functions, must detect
+			#raise AssertionError('Image too dark, change camera setting conditions') 	#Can also raise AssertionError to exit program
+			warnings.warn('Image too dark, retake necessary')
+			bright = False
+		return bright
+
+	def centerCamera(self):
+		centering = True
+		timeout = time.time() + 60*2	#timeout 2 minutes from now, prevents infinite loops
+
+		while centering:
+			self.takeImage()
+			if self.checkBrightness():	#If brightness is >150, then run rest of cameraProcessing steps. Otherwise, skip everything and take another image
+				imageCenter = cameraProcessing.getCenter(self.current_image)
+				centerDiffs = [imageCenter[0] - self.imageWidthCenter, imageCenter[1] - self.imageHeightCenter]
+				for i in range(2):
+					self.moveCamera[i] = (centerDiffs[i]*self.servoRate)
+				if (abs(centerDiffs[0]) and abs(centerDiffs[1]) < self.centerThreshold) or time.time() > timeout: 	#if X, Y position are within centerThreshold, centering is done
+					centering = False																				#if loop has been running too long, centering also autoexits
+
+
+	def zeroOffset(self):
+		#Many same concepts as centerCamera, refer to above
+		zeroing = True
+		timeout = time.time() + 60*2
+
+		while zeroing:
+			self.takeImage()
+			if self.checkBrightness():
+				imageOffset = cameraProcessing.getOffset(self.current_image)
+				for i in range(3):
+					self.moveCamera[i] = (imageOffset[i]*self.servoRate)
+				if (abs(imageOffset[0]) and abs(imageOffset[1]) and abs(imageOffset[2]) < self.offsetThreshold) or time.time() > timeout:
+					zeroing = False
+
+
+	def findSharpest(self):
+		for i in range(10): 								#Take 10 images and pick the sharpest of them all, can change this number
+			self.takeImage()
+			if self.checkBrightness():
+				sharpness = cameraProcessing.getSharpness(self.current_image)
+				if sharpness > self.sharpestImage:
+					self.finalImage = self.current_image	#Rewrites finalImage to current_image when the current has a better sharpness
+
+
+	def moveServos(self):
+		for i in self.moveCamera:
+			serialString += struct.pack('!B', i) 			#Packing each element in moveCamera list to a binary string for serialWrite
+		self.ser.write(serialString)						#Expecting Arduino code to accept this serial string and act on it
+
+
+	def bestImage(self):
+		self.centerCamera()
+		self.zeroOffset()
+		self.findSharpest()
+		return self.finalImage
 
 if __name__ == "__main__":
-	cameraPort = 1 #probably want to make this an argv input
-	integrationTimes = 10 #not sure what this is, will make constant for now
-	h = 480 #typical image dimensions
-	w = 600
+	cameraPort = 1
+	myCamera = CameraTestbench(cameraPort)
+	image = myCamera.bestImage()
 
-	myCamera = appleCamera.initCamera(cameraPort)
-	if myCamera == -1:
-		raise AssertionError('Camera could not initialize, check connections')
-	#initializing complete
-
-	taking_image = True
-	centering = True
-	offsetting = True
-
-	highest_sharpness = 0
-	i = 0
-	try:
-		ser = serial.Serial('/dev/ttyACM0, 9660')
-	except:
-		raise AssertionError('Could not connect to Arduino, check connections')
-
-	while taking_image: #this is bad, fix this, loops forever
-		focusPostion = appleCamera.getFocus(myCamera)
-		image = appleCamera.getImage(integrationTimes, focusPostion)
-
-		try:
-			brightness = cameraProcessing.getBrightness(image)
-			if brightness < 150:
-				warnings.warn('Image too dark, retaking')
-				continue
-		except:
-			warnings.warn('Image too dark, retaking')
-			continue
-
-		if centering:
-			move_direction = [0,0,0] #x,y,z
-			imageCenter = cameraProcessing.getCenter(image)
-			centerDiffs = [imageCenter[0] - w/2, imageCenter[1] - h/2]
-			if (-5 >= centerDiffs[0]) or (centerDiffs[0] >= 5): #probably can't be exactly equal to 0... however, this code can easily be changed for 0
-				move_direction[0] = (centerDiffs[0]*0.5) #we're multiplying by a scale so the camera doesn't shoot off in a direction
-			elif (-5 >= centerDiffs[1]) or (centerDiffs[1] >= 5): #this way we move 1 direction at a time
-				move_direction[1] = (centerDiffs[1]*0.5)
-			else:
-				centering = False
-			ser.write(move_direction)
-			continue
-
-		if offsetting:
-			move_direction = [0,0,0]
-			imageOffset = cameraProcessing.getOffset(image)
-			if (-5 >= imageOffset[0]) or (imageOffset[0] >= 5): #probably can't be exactly equal to 0... however, this code can easily be changed for 0
-				move_direction[0] = (imageOffset[0]*0.5) #could do this in a loop...
-			elif (-5 >= imageOffset[1]) or (imageOffset[1] >= 5): #this way we move 1 direction at a time
-				move_direction[1] = (imageOffset[1]*0.5)
-			elif (-5 >= imageOffset[2]) or (imageOffset[2] >= 5): #this way we move 1 direction at a time
-				move_direction[2] = (imageOffset[2]*0.5)
-			else:
-				offsetting = False
-			ser.write(move_direction)
-			continue
-
-		if i < 10:
-			sharpness = cameraProcessing.getSharpness(image)
-			if sharpness > biggest_sharpness:
-				finalImage = image
-			i += 1
-
-		if i == 10:
-			taking_image = False
-			#save somehow finalImage

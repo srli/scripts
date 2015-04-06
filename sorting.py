@@ -45,18 +45,18 @@ def test_sort(array):
 	 	next_product = (array[i][1] * array[i][0])*(array[i+1][1] * array[i+1][0])*(array[i+2][1] * array[i+2][0])
 
 	 	if current_product < prev_product:
-	 		print "at %i, current product was %i and previous product was %i", i, current_product, prev_product
-	 		#print current_product, next_product
+	 		print "at index %i, current product was %i and previous product was %i" % (i, current_product, prev_product)
 	 		raise AssertionError('Sorting not correct, re-evaluate algorithm')
 	 	elif current_product > next_product:
-	 		print "at %i, current product was %i and next_product was %i", i, current_product, next_product
+	 		print "at index %i, current product was %i and next_product was %i" % (i, current_product, next_product)
 	 		raise AssertionError('Sorting not correct, re-evaluate algorithm')
 
 if __name__ == '__main__':
-	for i in range(100):
+	for i in range(100): #doing 100 trials
 		test_array = [[randint(-20,20) for i in range(2)] for j in range(randint(1,100))] #these range values can be changed
-		test_array.insert(0, [0,0]) #for sake of testing, we insert a [0,0] when numbers start to become positive
+		test_array.insert(0, [0,0]) #for sake of testing, we insert a [0,0] so there's a buffer between negative and positive elements
 		sorted_array = sort(test_array)
+		#print sorted_array
 		test_sort(sorted_array)
 		sorted_array.remove([0,0]) #then remove so we're not altering the data
 	print "Testing complete, sorting correct"
